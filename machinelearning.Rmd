@@ -1,5 +1,5 @@
 ---
-title: "Is an automatic or manual transmission better for MPG?"
+title: "A prediction model to predict activity quality from activity monitors."
 output:
   html_document:
     keep_md: yes
@@ -17,7 +17,7 @@ Simply put: We want to build a prediction model to predict activity quality from
 Before letting caret to create a prediction model we will try to reduce the number of predictors in order to speed up the creation of the prediction model. First we load the training data set and remove the column "X"" to avoid overfitting by observation number.
 
 ```{r loadCSV, cache=TRUE}
-set.seed(1312)
+set.seed(1313)
 pml_training = read.csv("pml-training.csv")
 pml_training = pml_training[,-1]
 dim(pml_training)
@@ -98,7 +98,7 @@ training <- training[,impcolindex]
 Now that we have reduced the predictors significantly from 160 to `r length(impcolnames)` predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a more realistic out of sample error rate.
 
 ```{r trainFinalModel, cache=TRUE,dependson='keepImportantPredictors'}
-fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 10)
+fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 3)
 preObj <- preProcess(training,method=c("knnImpute"))
 trainingImputed <- predict(preObj,newdata=training)
 modFit <- train(trainclasse ~.,data=trainingImputed,
@@ -107,10 +107,20 @@ modFit <- train(trainclasse ~.,data=trainingImputed,
               ,trControl = fitControl
               )
 # print summary of model
-modFit
+print(modFit)
 ```
 
-Now let us compare the in sample error versus the out of sample error. Therefore let's compute the out of sample error by predicting based on our model fit and the testing data set.
+Here let's print a summary of our model fit.
+```{r}
+# make predictions
+predictions <- predict(modFit, trainingImputed)
+# summarize results
+confusionMatrix(predictions, trainclasse)
+print(modFit$finalModel)
+```
+
+
+Now let us compare the estimated OOB sample error versus the out of sample error. Therefore let's compute the out of sample error by predicting based on our model fit and the testing data set.
 ```{r preditTestingDataFrame, dependson='trainFinalModel'}
 # subselect the predictors used for training
 traincolnames <- colnames(training)
@@ -124,12 +134,9 @@ testingImputed <- predict(preObj,newdata=testing)
 Now we would like to compare the in sample error and the out of sample error.
 ```{r SampleErrors , dependson='preditTestingDataFrame'}
 # the in sample accuracy of the prediction model
- inSampleError.accuracy <- max(modFit$results[,"Accuracy"])
-inSampleError.accuracy
-
-# out of sample error and percentage of out of sample error
- inSampleError <- 1 - inSampleError.accuracy
- inSampleError
+fm <- modFit$finalModel
+tail(fm$err.rate)
+OOB_error<-fm$err.rate[nrow(fm$err.rate),1]
 
 # out of sample accuracy of the predicted model
  outOfSampleError.accuracy <- sum(predictions == testingclasse)/length(predictions)
@@ -139,6 +146,6 @@ inSampleError.accuracy
  outOfSampleError <- 1 - outOfSampleError.accuracy
  outOfSampleError
 ```
-The in sample error based on training with cross validation is `r inSampleError` whereas the out of sample error based on the seperate test data frame is `r outOfSampleError` .
+The in OOB estimated sample error based on training with repeated cross validation is `r OOB_error` whereas the out of sample error based on the seperate test data frame is `r outOfSampleError` .
 
 
