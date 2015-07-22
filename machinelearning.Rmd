@@ -1,0 +1,144 @@
+---
+title: "Is an automatic or manual transmission better for MPG?"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+Author: Rainer-Anton Englisch
+
+## Executive summary
+
+"Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset)."
+
+Simply put: We want to build a prediction model to predict activity quality from activity monitors. 
+
+## Predictor Analysis and Reduction 
+Before letting caret to create a prediction model we will try to reduce the number of predictors in order to speed up the creation of the prediction model. First we load the training data set and remove the column "X"" to avoid overfitting by observation number.
+
+```{r loadCSV, cache=TRUE}
+set.seed(1312)
+pml_training = read.csv("pml-training.csv")
+pml_training = pml_training[,-1]
+dim(pml_training)
+```
+
+Next we split the original training in a new training and a test data. The test data will be used later for estimating the out of sample error.
+
+The activity quality of an observation is classified by the factor variable classe which we store in seperate variables for later use for training and prediction.
+
+```{r createDataPartitions,message=FALSE,cache=TRUE,dependson='loadCSV'}
+library(caret)
+inTrain <- createDataPartition(pml_training$classe,p=0.75, list=FALSE)
+training <- pml_training[inTrain,]
+trainclasse <- training$classe
+testing <- pml_training[-inTrain,]
+testingclasse <- testing$classe
+```
+
+Next we throw out all predictors that have near zero variability because we assume
+that these predictors have minimal influence on the prediction.
+
+```{r removeNearZeroVarPredictors, cache=TRUE,dependson='removeNAsPredictors'}
+nZV <- nearZeroVar(training,saveMetrics=TRUE)
+# extract the predictor names which have near zero variability
+nzvcolnames <- rownames(nZV[nZV$nzv==TRUE,])
+# compute the index of these predictor  names in the training data frame
+nzvcolindex <- which(names(training) %in% nzvcolnames)
+# remove these predictors
+training <- training[,-nzvcolindex]
+# print these predictors
+nzvcolnames
+```
+We removed `r length(nzvcolnames)` predictors in the training data frame.
+
+Next we want to throw out predictors that have a great linear correlation.
+
+```{r createCorrelationMatrix, cache=TRUE,dependson='removeNearZeroVarPredictors'}
+#As the correlation matix can only be computed for numeric variables we need to identify numeric variables
+colsnumeric <- sapply(training, is.numeric)
+
+#compute the correlation matrix
+cortraining <- cor(training[,colsnumeric],use="pairwise.complete.obs")
+```
+
+Within the computed correlation matrix we select all predictors that have a high correlation. Let us define a high corelation as a value equal or greater than 0.7. Thus let's find these predictors and remove them from the training data set.
+```{r removeHighlyCorrelatedPredictors, cache=TRUE,dependson='createCorrelationMatrix'}
+# retrieve variables that have a correlation greater or equal to 0.7
+highlyCor <- findCorrelation(cortraining, 0.70,verbose=FALSE)
+highlyCorcolnames <- colnames(training)[highlyCor]
+# remove the highly correlated predictors from the training data frame
+training <- training[,-highlyCor]
+# print the removed predictors
+highlyCorcolnames
+```
+We removed `r length(highlyCor)` highly correlated predictors.
+
+Now we want to quickly create  a small prediction model in order to
+query the importance of the variables for the prediction model.
+Let's fit a model, print the important predictors and keep these predictors in the training data set.
+```{r keepImportantPredictors, cache=TRUE,dependson='removeHighlyCorrelatedPredictors'}
+modFit <- train(classe ~.,data=training,method="rpart")
+# print summary of the model fit
+modFit
+# retrieve the variable importance list
+importance <- varImp(modFit, scale=FALSE)
+importance <- importance[[1]]
+# bind the rownames as columns 
+importance <- cbind(rownames(importance),importance )
+# retrieve column names which have importance greater zero
+impcolnames <- importance[importance$Overall>0.0,1]
+# print important variables
+impcolnames
+# retrieve indexes of column names
+impcolindex <- which(names(training) %in% impcolnames)
+# keep important columns in training data frame
+training <- training[,impcolindex]
+```
+Now that we have reduced the predictors significantly from 160 to `r length(impcolnames)` predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a more realistic out of sample error rate.
+
+```{r trainFinalModel, cache=TRUE,dependson='keepImportantPredictors'}
+fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 10)
+preObj <- preProcess(training,method=c("knnImpute"))
+trainingImputed <- predict(preObj,newdata=training)
+modFit <- train(trainclasse ~.,data=trainingImputed,
+                method="rf"
+                #method="rpart"
+              ,trControl = fitControl
+              )
+# print summary of model
+modFit
+```
+
+Now let us compare the in sample error versus the out of sample error. Therefore let's compute the out of sample error by predicting based on our model fit and the testing data set.
+```{r preditTestingDataFrame, dependson='trainFinalModel'}
+# subselect the predictors used for training
+traincolnames <- colnames(training)
+traincolindex <- which(names(testing) %in% traincolnames)
+testing <- testing[,traincolindex]
+preObj <- preProcess(testing,method=c("knnImpute"))
+testingImputed <- predict(preObj,newdata=testing)
+ predictions <- predict(modFit,newdata=testingImputed)
+```
+
+Now we would like to compare the in sample error and the out of sample error.
+```{r SampleErrors , dependson='preditTestingDataFrame'}
+# the in sample accuracy of the prediction model
+ inSampleError.accuracy <- max(modFit$results[,"Accuracy"])
+inSampleError.accuracy
+
+# out of sample error and percentage of out of sample error
+ inSampleError <- 1 - inSampleError.accuracy
+ inSampleError
+
+# out of sample accuracy of the predicted model
+ outOfSampleError.accuracy <- sum(predictions == testingclasse)/length(predictions)
+ outOfSampleError.accuracy
+
+# out of sample error and percentage of out of sample error
+ outOfSampleError <- 1 - outOfSampleError.accuracy
+ outOfSampleError
+```
+The in sample error based on training with cross validation is `r inSampleError` whereas the out of sample error based on the seperate test data frame is `r outOfSampleError` .
+
+
