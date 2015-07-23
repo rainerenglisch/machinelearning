@@ -213,26 +213,26 @@ hr {
 
 <p>Before letting caret to create a prediction model we will try to reduce the number of predictors in order to speed up the creation of the prediction model. First we load the training data set and remove the column &ldquo;X&rdquo;&ldquo; to avoid overfitting by observation number.</p>
 
-<pre><code class="r">set.seed(1312)
-pml_training = read.csv(&quot;pml-training.csv&quot;)
-pml_training = pml_training[,-1]
+<p>The activity quality of an observation is classified by the factor variable classe which we store in seperate variables for later use for training and prediction.</p>
+
+<pre><code class="r">library(caret)
+</code></pre>
+
+<pre><code>## Loading required package: lattice
+## Loading required package: ggplot2
+</code></pre>
+
+<pre><code class="r">set.seed(1313)
+training = read.csv(&quot;pml-training.csv&quot;)
+training = training[,-1]
+trainclasse &lt;- training$classe
 dim(pml_training)
 </code></pre>
 
 <pre><code>## [1] 19622   159
 </code></pre>
 
-<p>Next we split the original training in a new training and a test data. The test data will be used later for estimating the out of sample error.</p>
-
-<p>The activity quality of an observation is classified by the factor variable classe which we store in seperate variables for later use for training and prediction.</p>
-
-<pre><code class="r">library(caret)
-inTrain &lt;- createDataPartition(pml_training$classe,p=0.75, list=FALSE)
-training &lt;- pml_training[inTrain,]
-trainclasse &lt;- training$classe
-testing &lt;- pml_training[-inTrain,]
-testingclasse &lt;- testing$classe
-</code></pre>
+<h3>Remove predictors with near zero variability</h3>
 
 <p>Next we throw out all predictors that have near zero variability because we assume
 that these predictors have minimal influence on the prediction.</p>
@@ -260,27 +260,31 @@ nzvcolnames
 ## [19] &quot;var_yaw_arm&quot;             &quot;kurtosis_roll_arm&quot;      
 ## [21] &quot;kurtosis_picth_arm&quot;      &quot;kurtosis_yaw_arm&quot;       
 ## [23] &quot;skewness_roll_arm&quot;       &quot;skewness_pitch_arm&quot;     
-## [25] &quot;skewness_yaw_arm&quot;        &quot;amplitude_pitch_arm&quot;    
-## [27] &quot;kurtosis_roll_dumbbell&quot;  &quot;kurtosis_picth_dumbbell&quot;
-## [29] &quot;kurtosis_yaw_dumbbell&quot;   &quot;skewness_roll_dumbbell&quot; 
-## [31] &quot;skewness_pitch_dumbbell&quot; &quot;skewness_yaw_dumbbell&quot;  
-## [33] &quot;max_yaw_dumbbell&quot;        &quot;min_yaw_dumbbell&quot;       
-## [35] &quot;amplitude_yaw_dumbbell&quot;  &quot;kurtosis_roll_forearm&quot;  
-## [37] &quot;kurtosis_picth_forearm&quot;  &quot;kurtosis_yaw_forearm&quot;   
-## [39] &quot;skewness_roll_forearm&quot;   &quot;skewness_pitch_forearm&quot; 
-## [41] &quot;skewness_yaw_forearm&quot;    &quot;max_roll_forearm&quot;       
-## [43] &quot;max_yaw_forearm&quot;         &quot;min_roll_forearm&quot;       
-## [45] &quot;min_yaw_forearm&quot;         &quot;amplitude_roll_forearm&quot; 
-## [47] &quot;amplitude_yaw_forearm&quot;   &quot;avg_roll_forearm&quot;       
-## [49] &quot;stddev_roll_forearm&quot;     &quot;var_roll_forearm&quot;       
-## [51] &quot;avg_pitch_forearm&quot;       &quot;stddev_pitch_forearm&quot;   
-## [53] &quot;var_pitch_forearm&quot;       &quot;avg_yaw_forearm&quot;        
-## [55] &quot;stddev_yaw_forearm&quot;      &quot;var_yaw_forearm&quot;
+## [25] &quot;skewness_yaw_arm&quot;        &quot;max_roll_arm&quot;           
+## [27] &quot;min_roll_arm&quot;            &quot;min_pitch_arm&quot;          
+## [29] &quot;amplitude_roll_arm&quot;      &quot;amplitude_pitch_arm&quot;    
+## [31] &quot;kurtosis_roll_dumbbell&quot;  &quot;kurtosis_picth_dumbbell&quot;
+## [33] &quot;kurtosis_yaw_dumbbell&quot;   &quot;skewness_roll_dumbbell&quot; 
+## [35] &quot;skewness_pitch_dumbbell&quot; &quot;skewness_yaw_dumbbell&quot;  
+## [37] &quot;max_yaw_dumbbell&quot;        &quot;min_yaw_dumbbell&quot;       
+## [39] &quot;amplitude_yaw_dumbbell&quot;  &quot;kurtosis_roll_forearm&quot;  
+## [41] &quot;kurtosis_picth_forearm&quot;  &quot;kurtosis_yaw_forearm&quot;   
+## [43] &quot;skewness_roll_forearm&quot;   &quot;skewness_pitch_forearm&quot; 
+## [45] &quot;skewness_yaw_forearm&quot;    &quot;max_roll_forearm&quot;       
+## [47] &quot;max_yaw_forearm&quot;         &quot;min_roll_forearm&quot;       
+## [49] &quot;min_yaw_forearm&quot;         &quot;amplitude_roll_forearm&quot; 
+## [51] &quot;amplitude_yaw_forearm&quot;   &quot;avg_roll_forearm&quot;       
+## [53] &quot;stddev_roll_forearm&quot;     &quot;var_roll_forearm&quot;       
+## [55] &quot;avg_pitch_forearm&quot;       &quot;stddev_pitch_forearm&quot;   
+## [57] &quot;var_pitch_forearm&quot;       &quot;avg_yaw_forearm&quot;        
+## [59] &quot;stddev_yaw_forearm&quot;      &quot;var_yaw_forearm&quot;
 </code></pre>
 
-<p>We removed 56 predictors in the training data frame.</p>
+<p>We removed 60 predictors in the training data frame.</p>
 
-<p>Next we want to throw out predictors that have a great linear correlation.</p>
+<h3>Remove predictors with high linear correlation</h3>
+
+<p>Next we want to throw out predictors that have a high linear correlation.</p>
 
 <pre><code class="r">#As the correlation matix can only be computed for numeric variables we need to identify numeric variables
 colsnumeric &lt;- sapply(training, is.numeric)
@@ -300,34 +304,36 @@ training &lt;- training[,-highlyCor]
 highlyCorcolnames
 </code></pre>
 
-<pre><code>##  [1] &quot;yaw_belt&quot;                &quot;stddev_pitch_belt&quot;      
-##  [3] &quot;max_roll_belt&quot;           &quot;roll_belt&quot;              
-##  [5] &quot;yaw_dumbbell&quot;            &quot;amplitude_pitch_belt&quot;   
-##  [7] &quot;max_picth_belt&quot;          &quot;total_accel_belt&quot;       
-##  [9] &quot;accel_belt_y&quot;            &quot;accel_belt_x&quot;           
-## [11] &quot;cvtd_timestamp&quot;          &quot;stddev_pitch_dumbbell&quot;  
-## [13] &quot;pitch_belt&quot;              &quot;gyros_belt_y&quot;           
-## [15] &quot;stddev_roll_belt&quot;        &quot;gyros_belt_z&quot;           
-## [17] &quot;accel_dumbbell_x&quot;        &quot;roll_dumbbell&quot;          
-## [19] &quot;pitch_dumbbell&quot;          &quot;gyros_dumbbell_y&quot;       
-## [21] &quot;amplitude_roll_dumbbell&quot; &quot;gyros_dumbbell_z&quot;       
+<pre><code>##  [1] &quot;yaw_belt&quot;                &quot;yaw_dumbbell&quot;           
+##  [3] &quot;stddev_pitch_belt&quot;       &quot;max_roll_belt&quot;          
+##  [5] &quot;roll_belt&quot;               &quot;accel_belt_y&quot;           
+##  [7] &quot;amplitude_pitch_belt&quot;    &quot;total_accel_belt&quot;       
+##  [9] &quot;stddev_pitch_dumbbell&quot;   &quot;max_picth_belt&quot;         
+## [11] &quot;gyros_belt_y&quot;            &quot;accel_belt_x&quot;           
+## [13] &quot;stddev_roll_belt&quot;        &quot;accel_dumbbell_x&quot;       
+## [15] &quot;cvtd_timestamp&quot;          &quot;pitch_belt&quot;             
+## [17] &quot;roll_dumbbell&quot;           &quot;gyros_belt_z&quot;           
+## [19] &quot;pitch_dumbbell&quot;          &quot;amplitude_roll_dumbbell&quot;
+## [21] &quot;gyros_dumbbell_y&quot;        &quot;gyros_dumbbell_z&quot;       
 ## [23] &quot;min_pitch_dumbbell&quot;      &quot;min_roll_dumbbell&quot;      
-## [25] &quot;var_accel_dumbbell&quot;      &quot;var_pitch_dumbbell&quot;     
-## [27] &quot;stddev_roll_dumbbell&quot;    &quot;var_roll_dumbbell&quot;      
-## [29] &quot;accel_dumbbell_y&quot;        &quot;accel_dumbbell_z&quot;       
-## [31] &quot;user_name&quot;               &quot;max_picth_forearm&quot;      
+## [25] &quot;stddev_roll_dumbbell&quot;    &quot;accel_dumbbell_y&quot;       
+## [27] &quot;var_pitch_dumbbell&quot;      &quot;var_roll_dumbbell&quot;      
+## [29] &quot;var_accel_dumbbell&quot;      &quot;max_picth_forearm&quot;      
+## [31] &quot;accel_dumbbell_z&quot;        &quot;user_name&quot;              
 ## [33] &quot;gyros_arm_y&quot;             &quot;accel_belt_z&quot;           
-## [35] &quot;total_accel_dumbbell&quot;    &quot;max_roll_arm&quot;           
-## [37] &quot;accel_arm_x&quot;             &quot;amplitude_roll_belt&quot;    
-## [39] &quot;min_pitch_belt&quot;          &quot;var_total_accel_belt&quot;   
-## [41] &quot;accel_arm_z&quot;             &quot;min_yaw_arm&quot;            
-## [43] &quot;gyros_forearm_z&quot;         &quot;var_roll_belt&quot;          
-## [45] &quot;gyros_dumbbell_x&quot;        &quot;var_accel_arm&quot;          
-## [47] &quot;stddev_yaw_dumbbell&quot;     &quot;var_accel_forearm&quot;      
-## [49] &quot;min_roll_belt&quot;           &quot;var_pitch_belt&quot;
+## [35] &quot;total_accel_dumbbell&quot;    &quot;accel_arm_x&quot;            
+## [37] &quot;min_pitch_belt&quot;          &quot;max_yaw_arm&quot;            
+## [39] &quot;var_total_accel_belt&quot;    &quot;amplitude_roll_belt&quot;    
+## [41] &quot;accel_arm_z&quot;             &quot;gyros_forearm_z&quot;        
+## [43] &quot;var_roll_belt&quot;           &quot;var_accel_arm&quot;          
+## [45] &quot;stddev_yaw_dumbbell&quot;     &quot;gyros_dumbbell_x&quot;       
+## [47] &quot;min_roll_belt&quot;           &quot;var_accel_forearm&quot;      
+## [49] &quot;var_pitch_belt&quot;
 </code></pre>
 
-<p>We removed 50 highly correlated predictors.</p>
+<p>We removed 49 highly correlated predictors.</p>
+
+<h3>Remove predictors which are unimportant for prediction</h3>
 
 <p>Now we want to quickly create  a small prediction model in order to
 query the importance of the variables for the prediction model.
@@ -346,24 +352,24 @@ modFit
 
 <pre><code>## CART 
 ## 
-## 14718 samples
-##    52 predictors
+## 19622 samples
+##    49 predictors
 ##     5 classes: &#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39; 
 ## 
 ## No pre-processing
 ## Resampling: Bootstrapped (25 reps) 
 ## 
-## Summary of sample sizes: 302, 302, 302, 302, 302, 302, ... 
+## Summary of sample sizes: 406, 406, 406, 406, 406, 406, ... 
 ## 
 ## Resampling results across tuning parameters:
 ## 
-##   cp          Accuracy   Kappa      Accuracy SD  Kappa SD  
-##   0.03587444  0.4927385  0.3601873  0.05738967   0.07025669
-##   0.08968610  0.3911354  0.1996817  0.04463675   0.05431438
-##   0.15246637  0.2985085  0.0647217  0.07264218   0.07784641
+##   cp          Accuracy   Kappa       Accuracy SD  Kappa SD  
+##   0.03703704  0.5213099  0.39620309  0.04775528   0.06437305
+##   0.06285073  0.4231756  0.25505345  0.06038397   0.08065290
+##   0.15488215  0.3229175  0.08920092  0.05514644   0.07539420
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
-## The final value used for the model was cp = 0.03587444.
+## The final value used for the model was cp = 0.03703704.
 </code></pre>
 
 <pre><code class="r"># retrieve the variable importance list
@@ -377,101 +383,148 @@ impcolnames &lt;- importance[importance$Overall&gt;0.0,1]
 impcolnames
 </code></pre>
 
-<pre><code>##  [1] amplitude_yaw_arm avg_roll_belt     avg_roll_dumbbell
-##  [4] magnet_belt_y     magnet_dumbbell_y magnet_dumbbell_z
-##  [7] num_window        pitch_forearm     roll_arm         
-## [10] roll_forearm      stddev_yaw_belt   var_yaw_belt     
-## 52 Levels: accel_arm_y accel_forearm_x accel_forearm_y ... yaw_forearm
+<pre><code>##  [1] amplitude_yaw_arm    avg_roll_belt        avg_roll_dumbbell   
+##  [4] avg_yaw_belt         magnet_belt_y        magnet_dumbbell_y   
+##  [7] max_roll_dumbbell    num_window           pitch_forearm       
+## [10] raw_timestamp_part_1 stddev_yaw_belt      var_yaw_belt        
+## 49 Levels: accel_arm_y accel_forearm_x accel_forearm_y ... yaw_forearm
 </code></pre>
 
 <pre><code class="r"># retrieve indexes of column names
 impcolindex &lt;- which(names(training) %in% impcolnames)
+removedCols &lt;- ncol(training) - length(impcolnames)
 # keep important columns in training data frame
 training &lt;- training[,impcolindex]
 </code></pre>
 
-<p>Now that we have reduced the predictors significantly from 160 to 12 predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a more realistic out of sample error rate.</p>
+<p>In the last step we have removed 38 unimportant predictors.</p>
 
-<pre><code class="r">fitControl &lt;- trainControl(method = &quot;repeatedcv&quot;,number = 10, repeats = 10)
+<h3>Train final prediction model</h3>
+
+<p>Now that we have reduced the predictors significantly from 160 to 12 predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a out of sample error rate.</p>
+
+<pre><code class="r">fitControl &lt;- trainControl(method = &quot;repeatedcv&quot;,number = 5, repeats = 3)
 preObj &lt;- preProcess(training,method=c(&quot;knnImpute&quot;))
 trainingImputed &lt;- predict(preObj,newdata=training)
-modFit &lt;- train(trainclasse ~.,data=trainingImputed,
+</code></pre>
+
+<pre><code>## Loading required namespace: RANN
+</code></pre>
+
+<pre><code class="r">modFit &lt;- train(trainclasse ~.,data=trainingImputed,
                 method=&quot;rf&quot;
                 #method=&quot;rpart&quot;
               ,trControl = fitControl
               )
 # print summary of model
-modFit
+print(modFit)
 </code></pre>
 
 <pre><code>## Random Forest 
 ## 
-## 14718 samples
+## 19622 samples
 ##    11 predictors
 ##     5 classes: &#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39; 
 ## 
 ## No pre-processing
-## Resampling: Cross-Validated (10 fold, repeated 10 times) 
+## Resampling: Cross-Validated (5 fold, repeated 3 times) 
 ## 
-## Summary of sample sizes: 13246, 13247, 13248, 13246, 13245, 13246, ... 
+## Summary of sample sizes: 15697, 15698, 15698, 15698, 15697, 15698, ... 
 ## 
 ## Resampling results across tuning parameters:
 ## 
-##   mtry  Accuracy   Kappa      Accuracy SD  Kappa SD   
-##    2    0.9896725  0.9869375  0.002669353  0.003376401
-##    7    0.9948226  0.9934509  0.001938324  0.002452135
-##   12    0.9871313  0.9837225  0.003111806  0.003936557
+##   mtry  Accuracy   Kappa      Accuracy SD   Kappa SD    
+##    2    0.9958380  0.9947357  0.0012131572  0.0015345035
+##    7    0.9992865  0.9990976  0.0004434712  0.0005609238
+##   12    0.9983523  0.9979158  0.0008276902  0.0010469030
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
 ## The final value used for the model was mtry = 7.
 </code></pre>
 
-<p>Now let us compare the in sample error versus the out of sample error. Therefore let&#39;s compute the out of sample error by predicting based on our model fit and the testing data set.</p>
+<p>Here let&#39;s print a summary of our model fit.</p>
 
-<pre><code class="r"># subselect the predictors used for training
-traincolnames &lt;- colnames(training)
-traincolindex &lt;- which(names(testing) %in% traincolnames)
-testing &lt;- testing[,traincolindex]
-preObj &lt;- preProcess(testing,method=c(&quot;knnImpute&quot;))
-testingImputed &lt;- predict(preObj,newdata=testing)
- predictions &lt;- predict(modFit,newdata=testingImputed)
+<pre><code class="r">print(modFit$finalModel)
 </code></pre>
 
-<p>Now we would like to compare the in sample error and the out of sample error.</p>
-
-<pre><code class="r"># the in sample accuracy of the prediction model
- inSampleError.accuracy &lt;- max(modFit$results[,&quot;Accuracy&quot;])
-inSampleError.accuracy
+<pre><code>## 
+## Call:
+##  randomForest(x = x, y = y, mtry = param$mtry) 
+##                Type of random forest: classification
+##                      Number of trees: 500
+## No. of variables tried at each split: 7
+## 
+##         OOB estimate of  error rate: 0.07%
+## Confusion matrix:
+##      A    B    C    D    E  class.error
+## A 5577    1    0    0    2 0.0005376344
+## B    1 3795    0    0    1 0.0005267316
+## C    0    3 3419    0    0 0.0008766803
+## D    0    1    0 3214    1 0.0006218905
+## E    0    1    0    2 3604 0.0008317161
 </code></pre>
 
-<pre><code>## [1] 0.9948226
+<pre><code class="r"># make predictions
+predictions &lt;- predict(modFit, trainingImputed)
+# summarize results
+confusionMatrix(predictions, trainclasse)
 </code></pre>
 
-<pre><code class="r"># out of sample error and percentage of out of sample error
- inSampleError &lt;- 1 - inSampleError.accuracy
- inSampleError
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 5580    0    0    0    0
+##          B    0 3797    0    0    0
+##          C    0    0 3422    0    0
+##          D    0    0    0 3216    0
+##          E    0    0    0    0 3607
+## 
+## Overall Statistics
+##                                      
+##                Accuracy : 1          
+##                  95% CI : (0.9998, 1)
+##     No Information Rate : 0.2844     
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16  
+##                                      
+##                   Kappa : 1          
+##  Mcnemar&#39;s Test P-Value : NA         
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            1.0000   1.0000   1.0000   1.0000   1.0000
+## Specificity            1.0000   1.0000   1.0000   1.0000   1.0000
+## Pos Pred Value         1.0000   1.0000   1.0000   1.0000   1.0000
+## Neg Pred Value         1.0000   1.0000   1.0000   1.0000   1.0000
+## Prevalence             0.2844   0.1935   0.1744   0.1639   0.1838
+## Detection Rate         0.2844   0.1935   0.1744   0.1639   0.1838
+## Detection Prevalence   0.2844   0.1935   0.1744   0.1639   0.1838
+## Balanced Accuracy      1.0000   1.0000   1.0000   1.0000   1.0000
 </code></pre>
 
-<pre><code>## [1] 0.005177404
+<h3>Compare in sample error and out of sample error</h3>
+
+<p>Finally we want to compare the in sample error and the out of sample error.</p>
+
+<pre><code class="r"># the out of bag sample accuracy of the prediction model
+fm &lt;- modFit$finalModel
+OOB_error&lt;-fm$err.rate[nrow(fm$err.rate),1]
+OOB_error
 </code></pre>
 
-<pre><code class="r"># out of sample accuracy of the predicted model
- outOfSampleError.accuracy &lt;- sum(predictions == testingclasse)/length(predictions)
- outOfSampleError.accuracy
+<pre><code>##          OOB 
+## 0.0006625217
 </code></pre>
 
-<pre><code>## [1] 0.8380914
+<pre><code class="r">inSampleError &lt;- 1-max(modFit$results$Accuracy)
+inSampleError
 </code></pre>
 
-<pre><code class="r"># out of sample error and percentage of out of sample error
- outOfSampleError &lt;- 1 - outOfSampleError.accuracy
- outOfSampleError
+<pre><code>## [1] 0.000713484
 </code></pre>
 
-<pre><code>## [1] 0.1619086
-</code></pre>
-
-<p>The in sample error based on training with cross validation is 0.0051774 whereas the out of sample error based on the seperate test data frame is 0.1619086 .</p>
+<p>The in out of bag estimated sample error which is the estimated out of sample error based on training with repeated cross validation is 0.066% whereas the in sample error is 0.071% .</p>
 
 </body>
 
