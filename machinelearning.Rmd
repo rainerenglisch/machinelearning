@@ -114,7 +114,7 @@ In the last step we have removed `r removedCols` unimportant predictors.
 Now that we have reduced the predictors significantly from 160 to `r length(impcolnames)` predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a out of sample error rate.
 
 ```{r trainFinalModel, cache=TRUE,dependson='keepImportantPredictors'}
-fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 5)
+fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 10)
 preObj <- preProcess(training,method=c("knnImpute"))
 trainingImputed <- predict(preObj,newdata=training)
 modFit <- train(trainclasse ~.,data=trainingImputed,
@@ -156,6 +156,7 @@ inSampleError
 cvoutOfSampleError <- 1-max(modFit$results$Kappa)
 cvoutOfSampleError
 ```
-The out of bag estimated sample error which is the estimated out of sample error based on training with repeated cross validation is `r format(cvoutOfSampleError*100, digits=2, nsmall=2)`% whereas the in sample error is `r format(inSampleError*100, digits=2, nsmall=2)`% .
+
+The in sample error is `r format(inSampleError*100, digits=2, nsmall=2)`% whereas the out of bag sample error (which is the estimated out of sample error based on training with repeated cross validation) is `r format(cvoutOfSampleError*100, digits=2, nsmall=2)`% whereas 
 Additionally the out of sample error based on a seperate test (or validation) set is `r format(outOfSampleError*100, digits=2, nsmall=2)`% .
 
