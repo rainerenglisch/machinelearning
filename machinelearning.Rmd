@@ -8,7 +8,7 @@ output:
 Author: Rainer-Anton Englisch
 
 ## Executive summary
-
+The task of the course project can be summarized by a quote of the course projects summary:
 "Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset)."
 
 Simply put: We want to build a prediction model to predict activity quality from activity monitors. 
@@ -18,13 +18,29 @@ Before letting caret to create a prediction model we will try to reduce the numb
 
 The activity quality of an observation is classified by the factor variable classe which we store in seperate variables for later use for training and prediction.
 
-```{r loadCSV, cache=TRUE}
+```{r  include=FALSE }
 library(caret)
+```
+
+```{r loadCSV, cache=TRUE}
 set.seed(1313)
-training = read.csv("pml-training.csv")
-training = training[,-1]
-trainclasse <- training$classe
+pml_training = read.csv("pml-training.csv")
+pml_training = pml_training[,-1]
 dim(pml_training)
+```
+
+
+Next we split the original training in a new training and a test data. The test data will be used later for estimating the out of sample error.
+
+The activity quality of an observation is classified by the factor variable classe which we store in seperate variables for later use for training and prediction.
+
+```{r createDataPartitions,message=FALSE,cache=TRUE,dependson='loadCSV'}
+library(caret)
+inTrain <- createDataPartition(pml_training$classe,p=0.75, list=FALSE)
+training <- pml_training[inTrain,]
+trainclasse <- training$classe
+testing <- pml_training[-inTrain,]
+testingclasse <- testing$classe
 ```
 
 ### Remove predictors with near zero variability
@@ -111,25 +127,34 @@ modFit <- train(trainclasse ~.,data=trainingImputed,
 print(modFit)
 ```
 
-Here let's print a summary of our model fit.
+Here let's print a summary of our model fit with help of a consusion matrix.
+
 ```{r}
-print(modFit$finalModel)
-# make predictions
-predictions <- predict(modFit, trainingImputed)
+# subselect the predictors used for training
+traincolnames <- colnames(training)
+traincolindex <- which(names(testing) %in% traincolnames)
+testing <- testing[,traincolindex]
+preObj <- preProcess(testing,method=c("knnImpute"))
+testingImputed <- predict(preObj,newdata=testing)
+ predictions <- predict(modFit,newdata=testingImputed)
 # summarize results
-confusionMatrix(predictions, trainclasse)
+confusionMatrix(predictions, testingclasse)
+outOfSampleAccuracy <- sum(predictions==testingclasse)/length(testingclasse)
+outOfSampleAccuracy
+outOfSampleError <- 1-outOfSampleAccuracy
+outOfSampleError
 ```
 
 ### Compare in sample error and out of sample error
-Finally we want to compare the in sample error and the out of sample error.
+Finally we want to compare the in sample error and the out of sample error.  Both errors need to be derived from accuracy variables  stored within the results variable within the prediction model.
+
 ```{r SampleErrors , dependson='trainFinalModel'}
 # the out of bag sample accuracy of the prediction model
-fm <- modFit$finalModel
-OOB_error<-fm$err.rate[nrow(fm$err.rate),1]
-OOB_error
-
 inSampleError <- 1-max(modFit$results$Accuracy)
 inSampleError
+
+cvoutOfSampleError <- 1-max(modFit$results$Kappa)
+cvoutOfSampleError
 ```
-The in out of bag estimated sample error which is the estimated out of sample error based on training with repeated cross validation is `r format(OOB_error*100, digits=2, nsmall=2)`% whereas the in sample error is `r format(inSampleError*100, digits=2, nsmall=2)`% .
+The in out of bag estimated sample error which is the estimated out of sample error based on training with repeated cross validation is `r format(cvoutOfSampleError*100, digits=2, nsmall=2)`% whereas the in sample error is `r format(inSampleError*100, digits=2, nsmall=2)`% .
 
