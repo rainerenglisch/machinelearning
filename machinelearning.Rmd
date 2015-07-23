@@ -1,9 +1,9 @@
 ---
 title: "A prediction model to predict activity quality from activity monitors."
 output:
-  html_document:
+  html_document: default
     keep_md: yes
-  pdf_document: default
+  pdf_document: 
 ---
 Author: Rainer-Anton Englisch
 
@@ -16,26 +16,18 @@ Simply put: We want to build a prediction model to predict activity quality from
 ## Predictor Analysis and Reduction 
 Before letting caret to create a prediction model we will try to reduce the number of predictors in order to speed up the creation of the prediction model. First we load the training data set and remove the column "X"" to avoid overfitting by observation number.
 
+The activity quality of an observation is classified by the factor variable classe which we store in seperate variables for later use for training and prediction.
+
 ```{r loadCSV, cache=TRUE}
+library(caret)
 set.seed(1313)
-pml_training = read.csv("pml-training.csv")
-pml_training = pml_training[,-1]
+training = read.csv("pml-training.csv")
+training = training[,-1]
+trainclasse <- training$classe
 dim(pml_training)
 ```
 
-Next we split the original training in a new training and a test data. The test data will be used later for estimating the out of sample error.
-
-The activity quality of an observation is classified by the factor variable classe which we store in seperate variables for later use for training and prediction.
-
-```{r createDataPartitions,message=FALSE,cache=TRUE,dependson='loadCSV'}
-library(caret)
-inTrain <- createDataPartition(pml_training$classe,p=0.75, list=FALSE)
-training <- pml_training[inTrain,]
-trainclasse <- training$classe
-testing <- pml_training[-inTrain,]
-testingclasse <- testing$classe
-```
-
+### Remove predictors with near zero variability
 Next we throw out all predictors that have near zero variability because we assume
 that these predictors have minimal influence on the prediction.
 
@@ -52,7 +44,9 @@ nzvcolnames
 ```
 We removed `r length(nzvcolnames)` predictors in the training data frame.
 
-Next we want to throw out predictors that have a great linear correlation.
+### Remove predictors with high linear correlation
+
+Next we want to throw out predictors that have a high linear correlation.
 
 ```{r createCorrelationMatrix, cache=TRUE,dependson='removeNearZeroVarPredictors'}
 #As the correlation matix can only be computed for numeric variables we need to identify numeric variables
@@ -74,6 +68,8 @@ highlyCorcolnames
 ```
 We removed `r length(highlyCor)` highly correlated predictors.
 
+### Remove predictors which are unimportant for prediction
+
 Now we want to quickly create  a small prediction model in order to
 query the importance of the variables for the prediction model.
 Let's fit a model, print the important predictors and keep these predictors in the training data set.
@@ -92,13 +88,18 @@ impcolnames <- importance[importance$Overall>0.0,1]
 impcolnames
 # retrieve indexes of column names
 impcolindex <- which(names(training) %in% impcolnames)
+removedCols <- ncol(training) - length(impcolnames)
 # keep important columns in training data frame
 training <- training[,impcolindex]
 ```
-Now that we have reduced the predictors significantly from 160 to `r length(impcolnames)` predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a more realistic out of sample error rate.
+
+In the last step we have removed `r removedCols` unimportant predictors.
+
+### Train final prediction model
+Now that we have reduced the predictors significantly from 160 to `r length(impcolnames)` predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a out of sample error rate.
 
 ```{r trainFinalModel, cache=TRUE,dependson='keepImportantPredictors'}
-fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 3)
+fitControl <- trainControl(method = "repeatedcv",number = 5, repeats = 3)
 preObj <- preProcess(training,method=c("knnImpute"))
 trainingImputed <- predict(preObj,newdata=training)
 modFit <- train(trainclasse ~.,data=trainingImputed,
@@ -112,40 +113,23 @@ print(modFit)
 
 Here let's print a summary of our model fit.
 ```{r}
+print(modFit$finalModel)
 # make predictions
 predictions <- predict(modFit, trainingImputed)
 # summarize results
 confusionMatrix(predictions, trainclasse)
-print(modFit$finalModel)
 ```
 
-
-Now let us compare the estimated OOB sample error versus the out of sample error. Therefore let's compute the out of sample error by predicting based on our model fit and the testing data set.
-```{r preditTestingDataFrame, dependson='trainFinalModel'}
-# subselect the predictors used for training
-traincolnames <- colnames(training)
-traincolindex <- which(names(testing) %in% traincolnames)
-testing <- testing[,traincolindex]
-preObj <- preProcess(testing,method=c("knnImpute"))
-testingImputed <- predict(preObj,newdata=testing)
- predictions <- predict(modFit,newdata=testingImputed)
-```
-
-Now we would like to compare the in sample error and the out of sample error.
-```{r SampleErrors , dependson='preditTestingDataFrame'}
-# the in sample accuracy of the prediction model
+### Compare in sample error and out of sample error
+Finally we want to compare the in sample error and the out of sample error.
+```{r SampleErrors , dependson='trainFinalModel'}
+# the out of bag sample accuracy of the prediction model
 fm <- modFit$finalModel
-tail(fm$err.rate)
 OOB_error<-fm$err.rate[nrow(fm$err.rate),1]
+OOB_error
 
-# out of sample accuracy of the predicted model
- outOfSampleError.accuracy <- sum(predictions == testingclasse)/length(predictions)
- outOfSampleError.accuracy
-
-# out of sample error and percentage of out of sample error
- outOfSampleError <- 1 - outOfSampleError.accuracy
- outOfSampleError
+inSampleError <- 1-max(modFit$results$Accuracy)
+inSampleError
 ```
-The in OOB estimated sample error based on training with repeated cross validation is `r OOB_error` whereas the out of sample error based on the seperate test data frame is `r outOfSampleError` .
-
+The in out of bag estimated sample error which is the estimated out of sample error based on training with repeated cross validation is `r format(OOB_error*100, digits=2, nsmall=2)`% whereas the in sample error is `r format(inSampleError*100, digits=2, nsmall=2)`% .
 
