@@ -1,4 +1,10 @@
-# A prediction model to predict activity quality from activity monitors.
+---
+title: "A prediction model to predict activity quality from activity monitors."
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
 Author: Rainer-Anton Englisch
 
 ## Executive summary
@@ -149,13 +155,6 @@ Let's fit a model, print the important predictors and keep these predictors in t
 
 ```r
 modFit <- train(classe ~.,data=training,method="rpart")
-```
-
-```
-## Loading required package: rpart
-```
-
-```r
 # print summary of the model fit
 modFit
 ```
@@ -164,7 +163,7 @@ modFit
 ## CART 
 ## 
 ## 14718 samples
-##    56 predictor
+##    56 predictors
 ##     5 classes: 'A', 'B', 'C', 'D', 'E' 
 ## 
 ## No pre-processing
@@ -218,14 +217,28 @@ Now that we have reduced the predictors significantly from 160 to 12 predictors 
 
 
 ```r
-fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 5)
+fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 10)
 preObj <- preProcess(training,method=c("knnImpute"))
 trainingImputed <- predict(preObj,newdata=training)
+```
+
+```
+## Loading required namespace: RANN
+```
+
+```r
 modFit <- train(trainclasse ~.,data=trainingImputed,
                 method="rf"
                 #method="rpart"
               ,trControl = fitControl
               )
+```
+
+```
+## Loading required namespace: e1071
+```
+
+```r
 # print summary of model
 print(modFit)
 ```
@@ -234,20 +247,20 @@ print(modFit)
 ## Random Forest 
 ## 
 ## 14718 samples
-##    11 predictor
+##    11 predictors
 ##     5 classes: 'A', 'B', 'C', 'D', 'E' 
 ## 
 ## No pre-processing
-## Resampling: Cross-Validated (10 fold, repeated 5 times) 
+## Resampling: Cross-Validated (10 fold, repeated 10 times) 
 ## 
 ## Summary of sample sizes: 13247, 13246, 13245, 13246, 13247, 13248, ... 
 ## 
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy   Kappa      Accuracy SD  Kappa SD  
-##    2    0.8146337  0.7652014  0.010130997  0.01287256
-##    7    0.8267133  0.7806375  0.010250399  0.01301961
-##   12    0.8164675  0.7677413  0.009835456  0.01249197
+##    2    0.8141457  0.7646327  0.009401890  0.01193194
+##    7    0.8262663  0.7801147  0.008556279  0.01087653
+##   12    0.8163126  0.7676005  0.009203512  0.01169044
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
 ## The final value used for the model was mtry = 7.
@@ -274,33 +287,33 @@ confusionMatrix(predictions, testingclasse)
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1327  155  188  122   44
-##          B   26  624   60  121   79
-##          C    9   51  509   29   63
-##          D    9   26   11  476   16
-##          E   24   93   87   56  699
+##          A 1328  149  181  117   37
+##          B   21  614   55  117   75
+##          C   12   55  513   21   57
+##          D    7   25   19  495   15
+##          E   27  106   87   54  717
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.7412          
-##                  95% CI : (0.7287, 0.7534)
+##                Accuracy : 0.7478          
+##                  95% CI : (0.7354, 0.7599)
 ##     No Information Rate : 0.2845          
 ##     P-Value [Acc > NIR] : < 2.2e-16       
 ##                                           
-##                   Kappa : 0.6683          
+##                   Kappa : 0.6769          
 ##  Mcnemar's Test P-Value : < 2.2e-16       
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9513   0.6575   0.5953  0.59204   0.7758
-## Specificity            0.8549   0.9277   0.9625  0.98488   0.9350
-## Pos Pred Value         0.7228   0.6857   0.7700  0.88476   0.7289
-## Neg Pred Value         0.9778   0.9186   0.9185  0.92487   0.9488
-## Prevalence             0.2845   0.1935   0.1743  0.16395   0.1837
-## Detection Rate         0.2706   0.1272   0.1038  0.09706   0.1425
-## Detection Prevalence   0.3744   0.1856   0.1348  0.10971   0.1956
-## Balanced Accuracy      0.9031   0.7926   0.7789  0.78846   0.8554
+## Sensitivity            0.9520   0.6470   0.6000   0.6157   0.7958
+## Specificity            0.8621   0.9322   0.9642   0.9839   0.9316
+## Pos Pred Value         0.7329   0.6961   0.7796   0.8824   0.7235
+## Neg Pred Value         0.9783   0.9167   0.9195   0.9289   0.9530
+## Prevalence             0.2845   0.1935   0.1743   0.1639   0.1837
+## Detection Rate         0.2708   0.1252   0.1046   0.1009   0.1462
+## Detection Prevalence   0.3695   0.1799   0.1342   0.1144   0.2021
+## Balanced Accuracy      0.9070   0.7896   0.7821   0.7998   0.8637
 ```
 
 ```r
@@ -309,7 +322,7 @@ outOfSampleAccuracy
 ```
 
 ```
-## [1] 0.7412316
+## [1] 0.7477569
 ```
 
 ```r
@@ -318,7 +331,7 @@ outOfSampleError
 ```
 
 ```
-## [1] 0.2587684
+## [1] 0.2522431
 ```
 
 ### Compare in sample error and out of bag sample error and out of sample error
@@ -332,7 +345,7 @@ inSampleError
 ```
 
 ```
-## [1] 0.1732867
+## [1] 0.1737337
 ```
 
 ```r
@@ -341,8 +354,9 @@ cvoutOfSampleError
 ```
 
 ```
-## [1] 0.2193625
+## [1] 0.2198853
 ```
-The out of bag estimated sample error which is the estimated out of sample error based on training with repeated cross validation is 21.94% whereas the in sample error is 17.33% .
-Additionally the out of sample error based on a seperate test (or validation) set is 25.88% .
+
+The in sample error is 17.37% whereas the out of bag sample error (which is the estimated out of sample error based on training with repeated cross validation) is 21.99% whereas 
+Additionally the out of sample error based on a seperate test (or validation) set is 25.22% .
 
