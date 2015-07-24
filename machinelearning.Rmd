@@ -27,9 +27,6 @@ set.seed(1312)
 pml_training = read.csv("pml-training.csv")
 pml_training = pml_training[,-1]
 timestampColIndex <-  grep("timestamp",colnames(pml_training))
-pml_training = pml_training[,-timestampColIndex]
-winColIndex <-  grep("window",colnames(pml_training))
-pml_training = pml_training[,-winColIndex]
 dim(pml_training)
 ```
 
@@ -118,13 +115,13 @@ In the last step we have removed `r removedCols` unimportant predictors.
 Now that we have reduced the predictors significantly from 160 to `r length(impcolnames)` predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a out of sample error rate.
 
 ```{r trainFinalModel, cache=TRUE,dependson='keepImportantPredictors'}
-fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 3)
+#fitControl <- trainControl(method = "repeatedcv",number = 10, repeats = 3)
 preObj <- preProcess(training,method=c("knnImpute"))
 trainingImputed <- predict(preObj,newdata=training)
 modFit <- train(trainclasse ~.,data=trainingImputed,
                 method="rf"
                 #method="rpart"
-              ,trControl = fitControl
+             # ,trControl = fitControl
               )
 # print summary of model
 print(modFit)
