@@ -36,10 +36,10 @@ dim(pml_training)
 ```
 ## [1] 19622   154
 ```
-
+### Create training and test/validation data set
 Next we split the original training in a new training and a test data. The test data will be used later for estimating the out of sample error.
 
-The activity quality of an observation is classified by the factor variable classe which we store in seperate variables for later use for training and prediction.
+The activity quality of an observation is classified by the factor variable **classe** which we store in seperate variables for later use for training and prediction.
 
 
 ```r
@@ -86,18 +86,17 @@ We removed 58 predictors in the training data frame.
 
 ### Remove predictors with high linear correlation
 
-Next we want to throw out predictors that have a high linear correlation.
+Next we want to throw out predictors that have a *high linear correlation*.
 
 
 ```r
 #As the correlation matix can only be computed for numeric variables we need to identify numeric variables
 colsnumeric <- sapply(training, is.numeric)
-
 #compute the correlation matrix
 cortraining <- cor(training[,colsnumeric],use="pairwise.complete.obs")
 ```
 
-Within the computed correlation matrix we select all predictors that have a high correlation. Let us define a high corelation as a value equal or greater than 0.7. Thus let's find these predictors and remove them from the training data set.
+Within the computed correlation matrix we select all predictors that have a high correlation. Let us define a high corelation as a value *equal or greater than 0.7*. Thus let's find these predictors and remove them from the training data set.
 
 ```r
 # retrieve variables that have a correlation greater or equal to 0.7
@@ -125,19 +124,11 @@ We removed 48 highly correlated predictors.
 
 ### Remove predictors which are unimportant for prediction
 
-Now we want to quickly create  a small prediction model in order to
-query the importance of the variables for the prediction model.
-Let's fit a model, print the important predictors and keep these predictors in the training data set.
+Now we want to quickly create  a small prediction model in order to query the importance of the variables for the prediction model.
+Let's fit a model, print the important predictors and *keep these important predictors* in the training data set.
 
 ```r
 modFit <- train(classe ~.,data=training,method="rpart")
-```
-
-```
-## Loading required package: rpart
-```
-
-```r
 # print summary of the model fit
 modFit
 ```
@@ -191,11 +182,10 @@ removedCols <- ncol(training) - length(impcolnames)
 # keep important columns in training data frame
 training <- training[,impcolindex]
 ```
-
 In the last step we have removed 35 unimportant predictors.
 
 ### Train final prediction model
-Now that we have reduced the predictors significantly from 160 to 13 predictors we will fit a more complex machine learning algorithm based on random forest. Additionally we will use cross validation to minimize in order to get a out of sample error rate.
+Now that we have reduced the predictors significantly from 160 to *13 predictors* we will fit a more complex machine learning algorithm based on *random forest*. Additionally we will use *cross validation* to minimize the out of sample error and preprocess the training data to remove NA values by knnImpute.
 
 
 ```r
@@ -206,15 +196,6 @@ modFit <- train(trainclasse ~.,data=trainingImputed,
                 method="rf"
               ,trControl = fitControl
               )
-```
-
-```
-## Loading required package: randomForest
-## randomForest 4.6-10
-## Type rfNews() to see new features/changes/bug fixes.
-```
-
-```r
 # print summary of model
 print(modFit)
 ```
@@ -233,27 +214,28 @@ print(modFit)
 ## 
 ## Resampling results across tuning parameters:
 ## 
-##   mtry  Accuracy   Kappa      Accuracy SD  Kappa SD  
-##    2    0.8709255  0.8367759  0.009560046  0.01213344
-##    7    0.8979977  0.8710258  0.007932023  0.01003115
-##   13    0.8974877  0.8703708  0.009430137  0.01193332
+##   mtry  Accuracy   Kappa      Accuracy SD  Kappa SD   
+##    2    0.8715837  0.8376083  0.009452852  0.011989397
+##    7    0.8978917  0.8708872  0.007758127  0.009805649
+##   13    0.8981246  0.8711812  0.008584120  0.010850065
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
-## The final value used for the model was mtry = 7.
+## The final value used for the model was mtry = 13.
 ```
 
 ### Compute the out of sample error based on a seperate training (or validation) set
-Let's use our serperate test (or validation) set to compute an out of sample error.
+Let's use our separate test (or validation) set to compute an out of sample error.
 
 
 ```r
-# subselect the predictors used for training
+# subselect in the test set the predictors used for the training set
 traincolnames <- colnames(training)
 traincolindex <- which(names(testing) %in% traincolnames)
 testing <- testing[,traincolindex]
+# impute NAs like for the training set
 preObj <- preProcess(testing,method=c("knnImpute"))
 testingImputed <- predict(preObj,newdata=testing)
- predictions <- predict(modFit,newdata=testingImputed)
+predictions <- predict(modFit,newdata=testingImputed)
 # summarize results
 confusionMatrix(predictions, testingclasse)
 ```
@@ -263,42 +245,43 @@ confusionMatrix(predictions, testingclasse)
 ## 
 ##           Reference
 ## Prediction   A   B   C   D   E
-##          A 946  88  53  58  22
-##          B  57 518  94  59  13
-##          C  35  86 483  54   7
-##          D  24  26  31 463  20
-##          E  54  41  23   9 659
+##          A 957 118  20  58   9
+##          B  65 475 104  61  14
+##          C  20  88 410  42   5
+##          D  29  50 127 474  95
+##          E  45  28  23   8 598
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.7823          
-##                  95% CI : (0.7691, 0.7951)
+##                Accuracy : 0.7428          
+##                  95% CI : (0.7288, 0.7564)
 ##     No Information Rate : 0.2845          
 ##     P-Value [Acc > NIR] : < 2.2e-16       
 ##                                           
-##                   Kappa : 0.7241          
-##  Mcnemar's Test P-Value : 6.562e-14       
+##                   Kappa : 0.6744          
+##  Mcnemar's Test P-Value : < 2.2e-16       
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.8477   0.6825   0.7061   0.7201   0.9140
-## Specificity            0.9213   0.9295   0.9438   0.9692   0.9603
-## Pos Pred Value         0.8106   0.6991   0.7263   0.8209   0.8384
-## Neg Pred Value         0.9383   0.9243   0.9383   0.9464   0.9802
+## Sensitivity            0.8575   0.6258   0.5994   0.7372   0.8294
+## Specificity            0.9270   0.9229   0.9521   0.9082   0.9675
+## Pos Pred Value         0.8236   0.6606   0.7257   0.6116   0.8519
+## Neg Pred Value         0.9424   0.9114   0.9184   0.9463   0.9618
 ## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2411   0.1320   0.1231   0.1180   0.1680
-## Detection Prevalence   0.2975   0.1889   0.1695   0.1438   0.2004
-## Balanced Accuracy      0.8845   0.8060   0.8250   0.8446   0.9372
+## Detection Rate         0.2439   0.1211   0.1045   0.1208   0.1524
+## Detection Prevalence   0.2962   0.1833   0.1440   0.1976   0.1789
+## Balanced Accuracy      0.8922   0.7744   0.7758   0.8227   0.8985
 ```
 
 ```r
+# compute the out of sample error
 outOfSampleAccuracy <- sum(predictions==testingclasse)/length(testingclasse)
 outOfSampleAccuracy
 ```
 
 ```
-## [1] 0.7823095
+## [1] 0.7427989
 ```
 
 ```r
@@ -307,7 +290,7 @@ outOfSampleError
 ```
 
 ```
-## [1] 0.2176905
+## [1] 0.2572011
 ```
 
 ### Compare in sample error and out of bag sample error and out of sample error
@@ -321,7 +304,7 @@ inSampleError
 ```
 
 ```
-## [1] 0.1020023
+## [1] 0.1018754
 ```
 
 ```r
@@ -330,9 +313,8 @@ cvoutOfSampleError
 ```
 
 ```
-## [1] 0.1289742
+## [1] 0.1288188
 ```
 
-The in sample error is 10.20% whereas the out of bag sample error (which is the estimated out of sample error based on training with repeated cross validation) is 12.90% whereas 
-Additionally the out of sample error based on a seperate test (or validation) set is 21.77% .
+The in *sample error* is **10.19%** whereas the *out of bag sample error* (which is the estimated out of sample error based on training with repeated cross validation) is **12.88%**. Additionally a real *out of sample error* based on a seperate test (or validation) set is **25.72%**. We observe that the real out of sample error is much higher than the out of bag sample error by about **199.66%**.
 
